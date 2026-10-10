@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // User profiles & stats
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow update: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // Multiplayer Game Rooms
+    match /rooms/{roomId} {
+      allow get: if isSignedIn() && isValidId(roomId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(roomId) && request.resource.data.hostId == request.auth.uid;
+      allow update: if isSignedIn() && isValidId(roomId);
+      allow delete: if isSignedIn() && isValidId(roomId) && resource.data.hostId == request.auth.uid;
+
+      // In-room chat & notifications
+      match /messages/{messageId} {
+        allow get: if isSignedIn() && isValidId(messageId);
+        allow list: if isSignedIn();
+        allow create: if isSignedIn() && isValidId(messageId) && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+  }
+}

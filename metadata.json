@@ -1,0 +1,6 @@
+{
+  "name": "JUARA NUSANTARA: Monopoli Warga +62",
+  "description": "Game papan multipemain dan simulasi kehidupan Indonesia dengan kota ikonik, dinamika pasar real-time, birokrasi, razia, bencana alam, dan fasilitas publik.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

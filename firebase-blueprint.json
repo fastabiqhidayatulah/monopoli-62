@@ -1,0 +1,75 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with game stats and cosmetic inventory",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Auth UID" },
+        "displayName": { "type": "string", "maxLength": 50, "description": "Display name of player" },
+        "email": { "type": "string", "maxLength": 128, "description": "Email address" },
+        "photoURL": { "type": "string", "maxLength": 500, "description": "Profile picture URL" },
+        "nusantaraCoins": { "type": "number", "description": "Cosmetic coins" },
+        "unlockedSkins": { "type": "array", "description": "List of unlocked avatar skin ids" },
+        "gamesPlayed": { "type": "number", "description": "Total matches played" },
+        "gamesWon": { "type": "number", "description": "Total matches won" },
+        "createdAt": { "type": "string", "description": "Creation ISO date" },
+        "updatedAt": { "type": "string", "description": "Update ISO date" }
+      },
+      "required": ["uid", "displayName"]
+    },
+    "GameRoom": {
+      "title": "GameRoom",
+      "description": "Real-time multiplayer room state for Juara Nusantara",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "maxLength": 16, "description": "Room code" },
+        "name": { "type": "string", "maxLength": 60, "description": "Room title" },
+        "hostId": { "type": "string", "maxLength": 128, "description": "Host player UID" },
+        "hostName": { "type": "string", "maxLength": 60, "description": "Host player display name" },
+        "status": { "type": "string", "enum": ["waiting", "playing", "finished"], "description": "Game status" },
+        "maxPlayers": { "type": "number", "description": "Maximum number of players (2-6)" },
+        "currentTurn": { "type": "number", "description": "Index of active player in players array" },
+        "round": { "type": "number", "description": "Current game round" },
+        "players": { "type": "array", "description": "Serialized active players array" },
+        "boardState": { "type": "string", "description": "JSON string of properties and city indices" },
+        "marketState": { "type": "string", "description": "JSON string of commodities and inflation" },
+        "logs": { "type": "array", "description": "Recent event log messages" },
+        "lastAction": { "type": "string", "description": "Summary of last performed game action" },
+        "winnerId": { "type": "string", "description": "UID of winning player when finished" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Last update timestamp" }
+      },
+      "required": ["code", "hostId", "status"]
+    },
+    "RoomMessage": {
+      "title": "RoomMessage",
+      "description": "Chat and live commentary messages in a game room",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string", "maxLength": 64, "description": "Room ID" },
+        "senderId": { "type": "string", "maxLength": 128, "description": "Sender UID" },
+        "senderName": { "type": "string", "maxLength": 60, "description": "Sender display name" },
+        "senderAvatar": { "type": "string", "maxLength": 30, "description": "Sender avatar character" },
+        "message": { "type": "string", "maxLength": 300, "description": "Chat message text" },
+        "type": { "type": "string", "enum": ["chat", "system", "trade", "hazard"], "description": "Message category" },
+        "createdAt": { "type": "string", "description": "Message timestamp" }
+      },
+      "required": ["roomId", "senderId", "message"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile with stats and cosmetics"
+    },
+    "/rooms/{roomId}": {
+      "schema": "GameRoom",
+      "description": "Active game rooms for real-time multiplayer"
+    },
+    "/rooms/{roomId}/messages/{messageId}": {
+      "schema": "RoomMessage",
+      "description": "Live chat and game announcements for the room"
+    }
+  }
+}
