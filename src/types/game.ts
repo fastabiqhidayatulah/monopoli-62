@@ -199,3 +199,34 @@ export interface CosmeticSkin {
   accentColor: string;
   isUnlockedDefault?: boolean;
 }
+
+export type BoardEventType = 
+  | 'RENT' 
+  | 'SALARY' 
+  | 'BUY' 
+  | 'UPGRADE' 
+  | 'TAX' 
+  | 'JAIL' 
+  | 'POLICE' 
+  | 'CARD' 
+  | 'DISASTER' 
+  | 'BLACK_MARKET' 
+  | 'AUCTION' 
+  | 'TRADE' 
+  | 'INFO';
+
+export interface BoardEventNotification {
+  id: string;
+  type: BoardEventType;
+  title: string;
+  message: string;
+  amountChange?: number;
+  playerName?: string;
+  playerAvatarId?: string;
+  playerCustomAvatar?: AvatarCustomization;
+  targetPlayerName?: string;
+  targetAvatarId?: string;
+  targetCustomAvatar?: AvatarCustomization;
+  propertyName?: string;
+  timestamp: string;
+}

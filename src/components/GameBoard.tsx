@@ -1,6 +1,7 @@
 import React from 'react';
-import { BoardSquare, Player, CityGroup, CityStatus, NaturalDisasterEvent } from '../types/game';
+import { BoardSquare, Player, CityGroup, CityStatus, NaturalDisasterEvent, BoardEventNotification } from '../types/game';
 import { AvatarRenderer } from './AvatarRenderer';
+import { CenterBoardEventPopup } from './CenterBoardEventPopup';
 import { formatRupiahShort } from '../utils/format';
 import {
   Flag,
@@ -34,6 +35,10 @@ interface GameBoardProps {
   movingPlayerId?: string | null;
   targetSquareId?: number | null;
   stepProgress?: { current: number; total: number } | null;
+  centerEvent?: BoardEventNotification | null;
+  onCloseCenterEvent?: () => void;
+  recentCenterEvents?: BoardEventNotification[];
+  onSelectCenterEvent?: (evt: BoardEventNotification) => void;
 }
 
 export const GameBoard: React.FC<GameBoardProps> = ({
@@ -47,6 +52,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   movingPlayerId,
   targetSquareId,
   stepProgress,
+  centerEvent,
+  onCloseCenterEvent,
+  recentCenterEvents = [],
+  onSelectCenterEvent,
 }) => {
   // Map 0-39 to (col, row) coordinates in an 11x11 grid:
   // Top: 20 -> (0,0) to 30 -> (10,0)
@@ -310,6 +319,19 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             </div>
           )}
 
+          {/* Recent Event Pill (clickable to re-open pop-up) */}
+          {!centerEvent && recentCenterEvents.length > 0 && !movingPlayerId && (
+            <button
+              onClick={() => onSelectCenterEvent?.(recentCenterEvents[0])}
+              className="z-10 flex items-center gap-1.5 px-3 py-1 bg-amber-100/90 hover:bg-amber-200 text-amber-950 border border-amber-300/80 rounded-full shadow-2xs text-[9px] sm:text-[10px] font-semibold transition-all hover:scale-[1.02] active:scale-95 max-w-xs truncate cursor-pointer"
+              title="Klik untuk membuka detail kejadian terakhir"
+            >
+              <span className="text-xs">📢</span>
+              <span className="font-bold text-amber-800 shrink-0">Kejadian Terakhir:</span>
+              <span className="truncate font-medium">{recentCenterEvents[0].title}</span>
+            </button>
+          )}
+
           {/* Active Player Status Banner */}
           <div className="flex items-center gap-2 sm:gap-2.5 p-2 bg-white/95 rounded-xl border border-amber-300/80 shadow-sm w-full max-w-xs sm:max-w-sm justify-between z-10">
             <div className="flex items-center gap-2">
@@ -347,6 +369,16 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Center Board Event Popup (Kejadian di Tengah Papan) */}
+          {centerEvent && (
+            <CenterBoardEventPopup
+              event={centerEvent}
+              onClose={onCloseCenterEvent || (() => {})}
+              recentEvents={recentCenterEvents}
+              onSelectEvent={onSelectCenterEvent}
+            />
+          )}
         </div>
       </div>
     </div>

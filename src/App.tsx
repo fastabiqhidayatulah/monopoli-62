@@ -12,6 +12,7 @@ import {
   AvatarCustomization,
   AuctionSession,
   AuctionBid,
+  BoardEventNotification,
 } from './types/game';
 import { INITIAL_BOARD, INITIAL_CITY_STATUS } from './data/boardData';
 import { INITIAL_COMMODITIES } from './data/commodities';
@@ -177,6 +178,10 @@ export default function App() {
   const [activeCardEvent, setActiveCardEvent] = useState<GameEventCard | null>(null);
   const [isEventPopupOpen, setIsEventPopupOpen] = useState<boolean>(false);
 
+  // Center Board Event Notification Pop-up
+  const [centerEvent, setCenterEvent] = useState<BoardEventNotification | null>(null);
+  const [recentCenterEvents, setRecentCenterEvents] = useState<BoardEventNotification[]>([]);
+
   // Activity Logs
   const [logs, setLogs] = useState<GameLog[]>([
     {
@@ -240,6 +245,29 @@ export default function App() {
   const addLog = useCallback((text: string, type: GameLog['type'] = 'INFO') => {
     const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     setLogs((prev) => [...prev, { id: 'log_' + Date.now() + Math.random(), timestamp: time, text, type }]);
+  }, []);
+
+  // Center Board Event Trigger
+  const triggerBoardEvent = useCallback(
+    (event: Omit<BoardEventNotification, 'id' | 'timestamp'>) => {
+      const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const newEvt: BoardEventNotification = {
+        ...event,
+        id: 'evt_' + Date.now() + Math.random(),
+        timestamp: time,
+      };
+      setCenterEvent(newEvt);
+      setRecentCenterEvents((prev) => [newEvt, ...prev.filter((p) => p.id !== newEvt.id).slice(0, 5)]);
+    },
+    []
+  );
+
+  const handleCloseCenterEvent = useCallback(() => {
+    setCenterEvent(null);
+  }, []);
+
+  const handleSelectCenterEvent = useCallback((evt: BoardEventNotification) => {
+    setCenterEvent(evt);
   }, []);
 
   // Update Net Worth of all players
@@ -551,6 +579,16 @@ export default function App() {
         salaryEarned = 2000000;
         sounds.playCash();
         addLog(`${activePlayer.name} melewati START dan menerima gaji bulanan Rp 2.000.000!`, 'MONEY');
+        triggerBoardEvent({
+          type: 'SALARY',
+          title: 'Gaji Bulanan START',
+          message: `${activePlayer.name} melewati petak START dan menerima gaji bulanan Rp 2.000.000!`,
+          amountChange: 2000000,
+          playerName: activePlayer.name,
+          playerAvatarId: activePlayer.avatarId,
+          playerCustomAvatar: activePlayer.customAvatar,
+          propertyName: 'START / GAJIAN',
+        });
       } else {
         sounds.playStepHop(currentStep);
       }
@@ -626,6 +664,19 @@ export default function App() {
             const rent = calculateRent(square, boardRef.current, cityStatuses, diceTotal, inflationRate);
             sounds.playCash();
             addLog(`${activePlayer.name} membayar sewa ${formatRupiah(rent)} kepada ${owner.name} di ${square.name}.`, 'MONEY');
+            triggerBoardEvent({
+              type: 'RENT',
+              title: 'Pembayaran Uang Sewa',
+              message: `${activePlayer.name} membayar sewa kepada ${owner.name} di petak ${square.name}.`,
+              amountChange: -rent,
+              playerName: activePlayer.name,
+              playerAvatarId: activePlayer.avatarId,
+              playerCustomAvatar: activePlayer.customAvatar,
+              targetPlayerName: owner.name,
+              targetAvatarId: owner.avatarId,
+              targetCustomAvatar: owner.customAvatar,
+              propertyName: square.name,
+            });
 
             setPlayers((prev) =>
               prev.map((p) => {
@@ -649,6 +700,16 @@ export default function App() {
         sounds.playFail();
         const taxAmount = square.baseRent;
         addLog(`${activePlayer.name} membayar pajak SPT / PBB sebesar ${formatRupiah(taxAmount)}.`, 'MONEY');
+        triggerBoardEvent({
+          type: 'TAX',
+          title: 'Pajak SPT / PBB',
+          message: `${activePlayer.name} membayar pajak negara resmi sebesar ${formatRupiah(taxAmount)}.`,
+          amountChange: -taxAmount,
+          playerName: activePlayer.name,
+          playerAvatarId: activePlayer.avatarId,
+          playerCustomAvatar: activePlayer.customAvatar,
+          propertyName: square.name,
+        });
         setPlayers((prev) =>
           prev.map((p, idx) =>
             idx === playerIdx ? { ...p, money: p.money - taxAmount, isBankrupt: p.money - taxAmount <= 0 } : p
@@ -676,6 +737,15 @@ export default function App() {
       case 'GO_TO_JAIL': {
         sounds.playPoliceSiren();
         addLog(`${activePlayer.name} terkena OTT KPK / Sidak Polisi! Langsung dijebloskan ke Penjara Polda!`, 'CRIME');
+        triggerBoardEvent({
+          type: 'JAIL',
+          title: 'OTT KPK & Sel Penjara!',
+          message: `${activePlayer.name} tertangkap OTT KPK/Polisi dan dijebloskan ke sel Penjara Polda!`,
+          playerName: activePlayer.name,
+          playerAvatarId: activePlayer.avatarId,
+          playerCustomAvatar: activePlayer.customAvatar,
+          propertyName: 'Penjara Polda',
+        });
         setPlayers((prev) =>
           prev.map((p, idx) =>
             idx === playerIdx
@@ -732,6 +802,16 @@ export default function App() {
   // Event Card Execution
   const applyEventCard = (card: GameEventCard, playerIdx: number) => {
     addLog(`[${card.title}] ${card.description}`, 'ALERT');
+    const targetPlayer = playersRef.current[playerIdx];
+    triggerBoardEvent({
+      type: 'CARD',
+      title: card.title,
+      message: card.description,
+      amountChange: card.amount,
+      playerName: targetPlayer?.name,
+      playerAvatarId: targetPlayer?.avatarId,
+      playerCustomAvatar: targetPlayer?.customAvatar,
+    });
     if (card.amount) {
       if (card.amount > 0) sounds.playCash();
       else sounds.playFail();
@@ -763,6 +843,15 @@ export default function App() {
     sounds.playCash();
     const activePlayer = players[activePlayerIndex];
     addLog(`${activePlayer.name} membayar tilang resmi BRI sebesar ${formatRupiah(fine)}.`, 'INFO');
+    triggerBoardEvent({
+      type: 'POLICE',
+      title: 'Bayar Denda Tilang',
+      message: `${activePlayer.name} membayar tilang resmi BRI sebesar ${formatRupiah(fine)}.`,
+      amountChange: -fine,
+      playerName: activePlayer.name,
+      playerAvatarId: activePlayer.avatarId,
+      playerCustomAvatar: activePlayer.customAvatar,
+    });
     setPlayers((prev) =>
       prev.map((p, idx) =>
         idx === activePlayerIndex ? { ...p, money: p.money - fine, legalRisk: Math.max(0, p.legalRisk - 10) } : p
@@ -777,6 +866,15 @@ export default function App() {
     sounds.playCash();
     const activePlayer = players[activePlayerIndex];
     addLog(`${activePlayer.name} menjalani sidang tipiring pengadilan negeri (Denda ${formatRupiah(courtCost)}).`, 'INFO');
+    triggerBoardEvent({
+      type: 'POLICE',
+      title: 'Sidang Tipiring PN',
+      message: `${activePlayer.name} menjalani sidang tipiring dan membayar denda ${formatRupiah(courtCost)}.`,
+      amountChange: -courtCost,
+      playerName: activePlayer.name,
+      playerAvatarId: activePlayer.avatarId,
+      playerCustomAvatar: activePlayer.customAvatar,
+    });
     setPlayers((prev) =>
       prev.map((p, idx) => (idx === activePlayerIndex ? { ...p, money: p.money - courtCost } : p))
     );
@@ -794,6 +892,15 @@ export default function App() {
     if (isSuccess) {
       sounds.playCash();
       addLog(`${activePlayer.name} berhasil menyelipkan uang rokok dan lolos razia!`, 'CRIME');
+      triggerBoardEvent({
+        type: 'POLICE',
+        title: 'Uang Rokok Berhasil!',
+        message: `${activePlayer.name} berhasil menyelipkan uang rokok dan lolos razia polisi!`,
+        amountChange: -bribeAmount,
+        playerName: activePlayer.name,
+        playerAvatarId: activePlayer.avatarId,
+        playerCustomAvatar: activePlayer.customAvatar,
+      });
       setPlayers((prev) =>
         prev.map((p, idx) =>
           idx === activePlayerIndex ? { ...p, money: p.money - bribeAmount, legalRisk: p.legalRisk + 5 } : p
@@ -802,6 +909,15 @@ export default function App() {
     } else {
       sounds.playPoliceSiren();
       addLog(`SUAP GAGAL! ${activePlayer.name} kena OTT petugas dan dijebloskan ke sel Polda!`, 'CRIME');
+      triggerBoardEvent({
+        type: 'JAIL',
+        title: 'Suap Gagal! OTT Petugas',
+        message: `SUAP GAGAL! ${activePlayer.name} kena OTT petugas dan dijebloskan ke sel Polda!`,
+        amountChange: -(bribeAmount * 2),
+        playerName: activePlayer.name,
+        playerAvatarId: activePlayer.avatarId,
+        playerCustomAvatar: activePlayer.customAvatar,
+      });
       setPlayers((prev) =>
         prev.map((p, idx) =>
           idx === activePlayerIndex
@@ -874,6 +990,16 @@ export default function App() {
 
     sounds.playCash();
     addLog(`${buyer.name} resmi membeli aset [${sq.name}] seharga ${formatRupiah(sq.price)}!`, 'MONEY');
+    triggerBoardEvent({
+      type: 'BUY',
+      title: 'Beli Aset Properti',
+      message: `${buyer.name} resmi membeli aset [${sq.name}] seharga ${formatRupiah(sq.price)}!`,
+      amountChange: -sq.price,
+      playerName: buyer.name,
+      playerAvatarId: buyer.avatarId,
+      playerCustomAvatar: buyer.customAvatar,
+      propertyName: sq.name,
+    });
 
     setBoard((prev) =>
       prev.map((s) => (s.id === squareId ? { ...s, ownerId: buyer.id } : s))
@@ -895,6 +1021,16 @@ export default function App() {
     sounds.playCash();
     const newLevel = sq.buildingLevel + 1;
     addLog(`${activePlayer.name} meng-upgrade [${sq.name}] ke level ${newLevel}! Sewa meningkat drastis.`, 'MONEY');
+    triggerBoardEvent({
+      type: 'UPGRADE',
+      title: `Upgrade Bangunan (Level ${newLevel})`,
+      message: `${activePlayer.name} meng-upgrade [${sq.name}] ke level ${newLevel}! Biaya: ${formatRupiah(cost)}`,
+      amountChange: -cost,
+      playerName: activePlayer.name,
+      playerAvatarId: activePlayer.avatarId,
+      playerCustomAvatar: activePlayer.customAvatar,
+      propertyName: sq.name,
+    });
 
     setBoard((prev) =>
       prev.map((s) => (s.id === squareId ? { ...s, buildingLevel: newLevel } : s))
@@ -914,6 +1050,16 @@ export default function App() {
 
     sounds.playCash();
     addLog(`${activePlayer.name} menggadaikan [${sq.name}] dan menerima dana darurat ${formatRupiah(mortgageCash)}.`, 'MONEY');
+    triggerBoardEvent({
+      type: 'UPGRADE',
+      title: 'Gadai Aset Properti',
+      message: `${activePlayer.name} menggadaikan [${sq.name}] dan menerima dana darurat ${formatRupiah(mortgageCash)}.`,
+      amountChange: mortgageCash,
+      playerName: activePlayer.name,
+      playerAvatarId: activePlayer.avatarId,
+      playerCustomAvatar: activePlayer.customAvatar,
+      propertyName: sq.name,
+    });
 
     setBoard((prev) =>
       prev.map((s) => (s.id === squareId ? { ...s, isMortgaged: true } : s))
@@ -934,6 +1080,16 @@ export default function App() {
 
     sounds.playCash();
     addLog(`${activePlayer.name} menebus gadai [${sq.name}] seharga ${formatRupiah(cost)}.`, 'MONEY');
+    triggerBoardEvent({
+      type: 'UPGRADE',
+      title: 'Tebus Gadai Aset',
+      message: `${activePlayer.name} menebus gadai aset [${sq.name}] seharga ${formatRupiah(cost)}.`,
+      amountChange: -cost,
+      playerName: activePlayer.name,
+      playerAvatarId: activePlayer.avatarId,
+      playerCustomAvatar: activePlayer.customAvatar,
+      propertyName: sq.name,
+    });
 
     setBoard((prev) =>
       prev.map((s) => (s.id === squareId ? { ...s, isMortgaged: false } : s))
@@ -959,6 +1115,15 @@ export default function App() {
       sounds.playCash();
       const profit = item.sellPricePotential - item.buyPrice;
       addLog(`Transaksi Pasar Gelap Berhasil! ${activePlayer.name} meraup untung +${formatRupiah(profit)} dari ${item.name}!`, 'MONEY');
+      triggerBoardEvent({
+        type: 'BLACK_MARKET',
+        title: 'Pasar Gelap Sukses!',
+        message: `Transaksi pasar gelap untung besar! ${activePlayer.name} meraup +${formatRupiah(profit)} dari ${item.name}!`,
+        amountChange: profit,
+        playerName: activePlayer.name,
+        playerAvatarId: activePlayer.avatarId,
+        playerCustomAvatar: activePlayer.customAvatar,
+      });
       setPlayers((prev) =>
         prev.map((p, idx) =>
           idx === activePlayerIndex
@@ -973,6 +1138,15 @@ export default function App() {
     } else {
       sounds.playPoliceSiren();
       addLog(`DIGEREBEK INTEL! Barang ${item.name} milik ${activePlayer.name} disita dan dikenakan denda!`, 'CRIME');
+      triggerBoardEvent({
+        type: 'BLACK_MARKET',
+        title: 'Penggerebekan Intel!',
+        message: `DIGEREBEK! Barang ${item.name} milik ${activePlayer.name} disita dan didenda ${formatRupiah(item.buyPrice)}!`,
+        amountChange: -item.buyPrice,
+        playerName: activePlayer.name,
+        playerAvatarId: activePlayer.avatarId,
+        playerCustomAvatar: activePlayer.customAvatar,
+      });
       setPlayers((prev) =>
         prev.map((p, idx) =>
           idx === activePlayerIndex
@@ -1103,6 +1277,17 @@ export default function App() {
     if (!target) return;
 
     addLog(`Kesepakatan dagang berhasil antara ${me.name} dan ${target.name}!`, 'MONEY');
+    triggerBoardEvent({
+      type: 'TRADE',
+      title: 'Kesepakatan Barter Aset',
+      message: `Kesepakatan dagang berhasil antara ${me.name} dan ${target.name}!`,
+      playerName: me.name,
+      playerAvatarId: me.avatarId,
+      playerCustomAvatar: me.customAvatar,
+      targetPlayerName: target.name,
+      targetAvatarId: target.avatarId,
+      targetCustomAvatar: target.customAvatar,
+    });
 
     // Transfer properties
     setBoard((prev) =>
@@ -1208,6 +1393,16 @@ export default function App() {
       sounds.playCash();
 
       addLog(`LELANG SELESAI! [${currentAuction.squareName}] resmi TERJUAL kepada ${winnerPlayer?.name || 'Pemenang'} seharga ${formatRupiah(finalAmount)}!`, 'MONEY');
+      triggerBoardEvent({
+        type: 'AUCTION',
+        title: 'Menang Lelang Properti!',
+        message: `[${currentAuction.squareName}] resmi TERJUAL kepada ${winnerPlayer?.name || 'Pemenang'} seharga ${formatRupiah(finalAmount)}!`,
+        amountChange: -finalAmount,
+        playerName: winnerPlayer?.name,
+        playerAvatarId: winnerPlayer?.avatarId,
+        playerCustomAvatar: winnerPlayer?.customAvatar,
+        propertyName: currentAuction.squareName,
+      });
 
       setBoard((prev) =>
         prev.map((s) => (s.id === currentAuction.squareId ? { ...s, ownerId: winnerId, isMortgaged: false } : s))
@@ -1267,11 +1462,17 @@ export default function App() {
         setIsEventPopupOpen(true);
         sounds.playDisasterRumble();
         addLog(`BENCANA ALAM: ${dis.title}! Sewa di ${dis.cityName} terdampak.`, 'DISASTER');
+        triggerBoardEvent({
+          type: 'DISASTER',
+          title: `Bencana: ${dis.title}`,
+          message: `${dis.impactDescription} Sewa di kota ${dis.cityName} terkena denda bencana!`,
+          propertyName: dis.cityName,
+        });
       }
     }
 
     setActivePlayerIndex(nextIdx);
-  }, [activePlayerIndex, currentRound, players, addLog, isMovingPlayer]);
+  }, [activePlayerIndex, currentRound, players, addLog, isMovingPlayer, triggerBoardEvent]);
 
   // AI Automatic Turn Runner
   useEffect(() => {
@@ -1462,6 +1663,10 @@ export default function App() {
                   movingPlayerId={movingPlayerId}
                   targetSquareId={targetSquareId}
                   stepProgress={stepProgress}
+                  centerEvent={centerEvent}
+                  onCloseCenterEvent={handleCloseCenterEvent}
+                  recentCenterEvents={recentCenterEvents}
+                  onSelectCenterEvent={handleSelectCenterEvent}
                   onSquareClick={(sq) => {
                     setSelectedSquare(sq);
                     setIsSquareModalOpen(true);
